@@ -1,0 +1,49 @@
+name: Notion Markdown Sync
+description: Fetch Notion pages and databases and sync them into markdown files.
+author: codex
+inputs:
+  notion_token:
+    description: Notion integration token with read permissions.
+    required: true
+  github_token:
+    description: Token used for committing back to the repository.
+    required: true
+    default: ${{ github.token }}
+  mode:
+    description: Sync mode. "changed" for .notion.txt changes, "full" for all manifests.
+    required: false
+    default: changed
+  path_filter:
+    description: Glob-style filter for manifest discovery.
+    required: false
+    default: '**/.notion.txt'
+  assets_dir:
+    description: Asset directory name created as a sibling of each manifest directory.
+    required: false
+    default: notion-assets
+  commit:
+    description: Commit changes back to repository.
+    required: false
+    default: 'true'
+  dry_run:
+    description: If true, do not write files and do not commit.
+    required: false
+    default: 'false'
+  commit_user_name:
+    description: Git author name for auto-commits.
+    required: false
+    default: github-actions[bot]
+  commit_user_email:
+    description: Git author email for auto-commits.
+    required: false
+    default: 41898282+github-actions[bot]@users.noreply.github.com
+outputs:
+  synced_pages:
+    description: Count of notion pages rendered to markdown.
+  synced_assets:
+    description: Count of downloaded assets.
+  changed_files:
+    description: Comma-separated list of changed .notion.txt files.
+runs:
+  using: node20
+  main: src/index.js

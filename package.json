@@ -1,0 +1,15 @@
+{
+  "name": "notion-page-sync-action",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "GitHub Action to sync Notion pages/databases into markdown files using .notion.txt manifests.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.15",
+    "js-yaml": "^4.1.0"
+  }
+}
