@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import yaml from "js-yaml";
 import { NotionToMarkdown } from "notion-to-md";
 import { getInputs } from "./inputs.js";
 import {
@@ -14,7 +15,6 @@ import {
   writeOutput,
 } from "./utils.js";
 import { NotionSyncClient } from "./notionClient.js";
-import { frontmatterFromMeta } from "./converter.js";
 import {
   isRepoClean,
   configureIdentity,
@@ -190,6 +190,11 @@ function markdownFromBlocks(n2m, blocks) {
   const markdownObject = n2m.toMarkdownString(blocks);
   const parent = typeof markdownObject.parent === "string" ? markdownObject.parent : "";
   return parent.trim() ? `${parent.trim()}\n` : "";
+}
+
+function frontmatterFromMeta(meta) {
+  const yamlBody = yaml.dump(meta, { noRefs: true, lineWidth: 2000 });
+  return `---\n${yamlBody}---`;
 }
 
 async function writePageMarkdown({

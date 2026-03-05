@@ -4,9 +4,10 @@ Sync Notion pages and databases to Markdown using `.notion.txt` files in your re
 
 - One `.notion.txt` file per folder, e.g. `docs/.notion.txt`.
 - One line = one Notion page/database URL or ID.
-- Each page is written as `Page_Name.md` in the same folder.
-- Downloaded images/files are placed in sibling `notion-assets/` by default.
+- Top-level pages are written as `Page-Title.md` in the same folder.
+- Child pages are written under a sibling directory named after the parent file stem.
 - Frontmatter is added so renames won’t lose history (`notion_id` is stable).
+- Markdown conversion is handled by `notion-to-md`.
 
 ## Inputs
 
@@ -14,7 +15,7 @@ Sync Notion pages and databases to Markdown using `.notion.txt` files in your re
 - `github_token` (required): usually `${{ github.token }}`.
 - `mode`: `changed` (default) or `full`.
 - `path_filter`: glob for manifests, default `**/.notion.txt`.
-- `assets_dir`: default `notion-assets`.
+- `assets_dir`: currently unused, reserved for future asset handling.
 - `commit`: `true`/`false` (default `true`).
 - `dry_run`: `true`/`false` (default `false`).
 - `commit_user_name`, `commit_user_email`: git identity.
@@ -22,7 +23,7 @@ Sync Notion pages and databases to Markdown using `.notion.txt` files in your re
 ## Outputs
 
 - `synced_pages`: number of pages written.
-- `synced_assets`: number of downloaded assets.
+- `synced_assets`: always `0` for now. Asset downloading is not implemented in the current `notion-to-md` path.
 - `changed_files`: comma-separated markdown paths.
 
 ## Example `.notion.txt`
@@ -39,6 +40,18 @@ You can place files anywhere:
 docs/.notion.txt
 docs/desktop-app/.notion.txt
 docs/desktop-app/backend/.notion.txt
+```
+
+## Output shape
+
+For a manifest entry pointing at a page with child pages:
+
+```text
+docs/.notion.txt
+docs/How-to-Monorepo.md
+docs/How-to-Monorepo/How-to-Monorepo-Desktop.md
+docs/How-to-Monorepo/How-to-Monorepo-Android.md
+docs/How-to-Monorepo/How-to-Monorepo-iOS.md
 ```
 
 ## Workflow: run on branch pushes/PRs when `.notion.txt` changes
@@ -91,3 +104,4 @@ jobs:
 - `mode: changed` only processes changed `.notion.txt` manifests.
 - `schedule` runs a full sync automatically.
 - `mode: full` can be forced when needed (e.g. one-off backfill).
+- GitHub Actions manual runs are typically a good place to use `mode: full`.

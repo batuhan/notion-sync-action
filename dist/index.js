@@ -6217,18 +6217,13 @@ module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("zlib");
 
 /***/ }),
 
-/***/ 461:
+/***/ 243:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
 
-
-// EXPORTS
-__nccwpck_require__.d(__webpack_exports__, {
-  m_: () => (/* binding */ frontmatterFromMeta)
-});
-
-// UNUSED EXPORTS: convertToMarkdown, richTextToText
-
-;// CONCATENATED MODULE: ./node_modules/js-yaml/dist/js-yaml.mjs
+/* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
+/* harmony export */   Ay: () => (/* binding */ jsYaml)
+/* harmony export */ });
+/* unused harmony exports CORE_SCHEMA, DEFAULT_SCHEMA, FAILSAFE_SCHEMA, JSON_SCHEMA, Schema, Type, YAMLException, dump, load, loadAll, safeDump, safeLoad, safeLoadAll, types */
 
 /*! js-yaml 4.1.1 https://github.com/nodeca/js-yaml @license MIT */
 function isNothing(subject) {
@@ -6848,7 +6843,7 @@ function isInteger(object) {
          (object % 1 === 0 && !common.isNegativeZero(object));
 }
 
-var js_yaml_int = new type('tag:yaml.org,2002:int', {
+var int = new type('tag:yaml.org,2002:int', {
   kind: 'scalar',
   resolve: resolveYamlInteger,
   construct: constructYamlInteger,
@@ -6953,7 +6948,7 @@ function isFloat(object) {
          (object % 1 !== 0 || common.isNegativeZero(object));
 }
 
-var js_yaml_float = new type('tag:yaml.org,2002:float', {
+var float = new type('tag:yaml.org,2002:float', {
   kind: 'scalar',
   resolve: resolveYamlFloat,
   construct: constructYamlFloat,
@@ -6966,8 +6961,8 @@ var json = failsafe.extend({
   implicit: [
     _null,
     bool,
-    js_yaml_int,
-    js_yaml_float
+    int,
+    float
   ]
 });
 
@@ -10048,14 +10043,14 @@ var YAMLException       = exception;
 // Re-export all types in case user wants to create custom schema
 var types = {
   binary:    binary,
-  float:     js_yaml_float,
+  float:     float,
   map:       map,
   null:      _null,
   pairs:     pairs,
   set:       set,
   timestamp: timestamp,
   bool:      bool,
-  int:       js_yaml_int,
+  int:       int,
   merge:     merge,
   omap:      omap,
   seq:       seq,
@@ -10083,319 +10078,6 @@ var jsYaml = {
 	safeLoadAll: safeLoadAll,
 	safeDump: safeDump
 };
-
-
-
-;// CONCATENATED MODULE: ./src/converter.js
-
-
-function convertAnnotation(input) {
-  let output = input.text || "";
-
-  const annotations = input.annotations || {};
-  if (!output) {
-    return output;
-  }
-
-  if (annotations.code) {
-    output = `\`${output}\``;
-  }
-
-  if (annotations.bold) {
-    output = `**${output}**`;
-  }
-
-  if (annotations.italic) {
-    output = `_${output}_`;
-  }
-
-  if (annotations.strikethrough) {
-    output = `~~${output}~~`;
-  }
-
-  if (annotations.underline) {
-    output = `<u>${output}</u>`;
-  }
-
-  if (annotations.color && annotations.color !== "default") {
-    output = `<span style="color:${annotations.color}">${output}</span>`;
-  }
-
-  if (annotations.link && annotations.link.url) {
-    output = `[${output}](${annotations.link.url})`;
-  }
-
-  return output;
-}
-
-function richTextToText(parts = []) {
-  return parts
-    .map((part) => {
-      if (part.type === "mention") {
-        if (part.mention?.type === "user" && part.mention.user?.name) {
-          return `@${part.mention.user.name}`;
-        }
-        if (part.mention?.type === "page" && part.mention.page?.id) {
-          return `Page ${part.mention.page.id}`;
-        }
-        if (part.mention?.type === "database" && part.mention.database?.id) {
-          return `Database ${part.mention.database.id}`;
-        }
-        return "";
-      }
-
-      if (part.type === "equation") {
-        return `$${part.equation?.expression || ""}$`;
-      }
-
-      return convertAnnotation(part);
-    })
-    .join("");
-}
-
-function textFromList(list = []) {
-  return list
-    .map((item) => richTextToText(item.rich_text || []))
-    .filter(Boolean)
-    .join("");
-}
-
-function renderBlockChildren(blocks, context, depth = 0, listPrefix = "") {
-  const lines = [];
-  for (const child of blocks || []) {
-    lines.push(...convertBlock(child, context, depth, listPrefix));
-  }
-
-  return lines.filter((line) => line !== null).join("\n");
-}
-
-function convertUnsupportedBlock(block) {
-  const json = JSON.stringify(block, null, 2);
-  return [
-    `<!-- Unsupported block type: ${block.type} -->`,
-    "```json",
-    json,
-    "```",
-    "",
-  ];
-}
-
-function tableRowToMdCells(cells = []) {
-  return cells
-    .map((cell) => richTextToText(cell || []))
-    .map((value) => value.replace(/\|/g, "\\|") || "")
-    .map((value) => value.trim());
-}
-
-function convertTable(block) {
-  const rows = block.children || [];
-  if (!rows.length) {
-    return [""];
-  }
-
-  const markdownRows = rows
-    .filter((row) => row.type === "table_row")
-    .map((row) => tableRowToMdCells(row.table_row.cells));
-
-  if (!markdownRows.length) {
-    return [""];
-  }
-
-  const width = markdownRows[0].length;
-  const header = markdownRows[0];
-  const lines = [
-    `| ${header.map((cell) => cell || " ").join(" | ")} |`,
-    `| ${new Array(width).fill("---").join(" | ")} |`,
-  ];
-
-  for (const row of markdownRows.slice(1)) {
-    const padded = row.concat(new Array(Math.max(0, width - row.length)).fill(" ")).slice(0, width);
-    lines.push(`| ${padded.join(" | ")} |`);
-  }
-
-  lines.push("");
-  return lines;
-}
-
-async function convertBlock(block, context, depth = 0, listPrefix = "") {
-  const indent = "  ".repeat(depth);
-  const lines = [];
-
-  switch (block.type) {
-    case "paragraph": {
-      const text = richTextToText(block.paragraph.rich_text || []);
-      if (text.trim()) {
-        lines.push(indent + text);
-      }
-      lines.push("");
-      break;
-    }
-    case "heading_1":
-    case "heading_2":
-    case "heading_3": {
-      const level = block.type === "heading_1" ? 1 : block.type === "heading_2" ? 2 : 3;
-      const heading = richTextToText(block[block.type].rich_text || []);
-      if (heading.trim()) {
-        lines.push(`${indent}${"#".repeat(level)} ${heading}`);
-      }
-      lines.push("");
-      break;
-    }
-    case "quote": {
-      const text = richTextToText(block.quote.rich_text || []);
-      if (text.trim()) {
-        lines.push(`${indent}> ${text}`);
-      }
-      lines.push("");
-      break;
-    }
-    case "callout": {
-      const icon = block.callout.icon?.type === "emoji" ? block.callout.icon.emoji : "";
-      const text = richTextToText(block.callout.rich_text || []);
-      lines.push(`${indent}> ${icon ? `${icon} ` : ""}${text}`);
-      lines.push("");
-      break;
-    }
-    case "bulleted_list_item":
-    case "numbered_list_item": {
-      const prefix = listPrefix || `${indent}- `;
-      const text = richTextToText(block[block.type].rich_text || []);
-      lines.push(prefix + text);
-      if (Array.isArray(block.children)) {
-        const childrenText = renderBlockChildren(block.children, context, depth + 1, `${"  ".repeat(depth + 1)}- `);
-        if (childrenText) {
-          lines.push(childrenText);
-        }
-      }
-      lines.push("");
-      break;
-    }
-    case "to_do": {
-      const checked = block.to_do.checked ? "x" : " ";
-      const text = richTextToText(block.to_do.rich_text || []);
-      lines.push(`${indent}- [${checked}] ${text}`);
-      lines.push("");
-      break;
-    }
-    case "code": {
-      const text = richTextToText(block.code.rich_text || []);
-      const lang = block.code.language || "";
-      lines.push(`${indent}\`\`\`${lang}`);
-      if (text) {
-        lines.push(text);
-      }
-      lines.push(`\`\`\``);
-      lines.push("");
-      break;
-    }
-    case "divider": {
-      lines.push(`${indent}---`);
-      lines.push("");
-      break;
-    }
-    case "image": {
-      const image = block.image;
-      const source = image.type === "file" ? image.file.url : image.external?.url;
-      const caption = richTextToText(image.caption || []);
-      const linkText = caption || "Image";
-      const local = await context.assetManager.resolveImageUrl(source);
-      if (local) {
-        lines.push(`${indent}![${linkText}](${local})`);
-      }
-      break;
-    }
-    case "file": {
-      const file = block.file;
-      const source = file.type === "file" ? file.file.url : file.external?.url;
-      const name = file.caption && file.caption[0] ? richTextToText(file.caption || []) : "file";
-      const local = await context.assetManager.resolveImageUrl(source);
-      if (local) {
-        lines.push(`${indent}[${name || "file"}](${local})`);
-      }
-      break;
-    }
-    case "pdf": {
-      const name = block.pdf?.caption?.length
-        ? richTextToText(block.pdf.caption || [])
-        : "pdf";
-      const source = block.pdf?.type === "file" ? block.pdf.file.url : block.pdf.external?.url;
-      const local = await context.assetManager.resolveImageUrl(source);
-      if (local) {
-        lines.push(`${indent}[${name}](${local})`);
-      }
-      break;
-    }
-    case "bookmark": {
-      const url = block.bookmark.url;
-      const text = block.bookmark.caption?.length ? richTextToText(block.bookmark.caption) : url;
-      lines.push(`${indent}[${text}](${url})`);
-      lines.push("");
-      break;
-    }
-    case "toggle": {
-      const title = richTextToText(block.toggle.rich_text || []);
-      lines.push(`${indent}<details>`);
-      lines.push(`${indent}<summary>${title || "section"}</summary>`);
-      if (Array.isArray(block.children)) {
-        const nested = renderBlockChildren(block.children, context, depth + 1);
-        if (nested) {
-          lines.push("");
-          lines.push(nested);
-        }
-      }
-      lines.push(`${indent}</details>`);
-      lines.push("");
-      break;
-    }
-    case "child_page": {
-      lines.push(`${indent}## ${richTextToText(block.child_page.title)}`);
-      lines.push("");
-      break;
-    }
-    case "child_database": {
-      lines.push(`${indent}## ${richTextToText(block.child_database.title || [])}`);
-      lines.push("");
-      break;
-    }
-    case "table": {
-      lines.push(...convertTable(block));
-      break;
-    }
-    default: {
-      lines.push(...convertUnsupportedBlock(block));
-      break;
-    }
-  }
-
-  if (block.children && !["bulleted_list_item", "numbered_list_item", "toggle"].includes(block.type)) {
-    const nested = renderBlockChildren(block.children, context, depth + 1);
-    if (nested) {
-      lines.push(nested);
-    }
-  }
-
-  return lines;
-}
-
-async function convertToMarkdown(blocks, context) {
-  const lines = [];
-
-  for (const block of blocks || []) {
-    lines.push(...(await convertBlock(block, context)));
-  }
-
-  const content = lines
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-
-  return `${content}\n`;
-}
-
-function frontmatterFromMeta(meta) {
-  const yamlBody = jsYaml.dump(meta, { noRefs: true, lineWidth: 2000 });
-  return `---\n${yamlBody}---`;
-}
 
 
 
@@ -10514,11 +10196,11 @@ function listFilesChangedBetween(baseRef, headRef) {
 __nccwpck_require__.a(__webpack_module__, async (__webpack_handle_async_dependencies__, __webpack_async_result__) => { try {
 /* harmony import */ var node_fs_promises__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(455);
 /* harmony import */ var node_path__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(760);
-/* harmony import */ var notion_to_md__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(42);
-/* harmony import */ var _inputs_js__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(185);
-/* harmony import */ var _utils_js__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(419);
-/* harmony import */ var _notionClient_js__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(850);
-/* harmony import */ var _converter_js__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(461);
+/* harmony import */ var js_yaml__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(243);
+/* harmony import */ var notion_to_md__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(42);
+/* harmony import */ var _inputs_js__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(185);
+/* harmony import */ var _utils_js__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(419);
+/* harmony import */ var _notionClient_js__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(850);
 /* harmony import */ var _git_js__WEBPACK_IMPORTED_MODULE_7__ = __nccwpck_require__(902);
 
 
@@ -10543,7 +10225,7 @@ function collectChangedManifestsFromEvent(event = {}) {
   }
 
   if (candidates.length > 0) {
-    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .deduplicateList */ .lP)(candidates);
+    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .deduplicateList */ .lP)(candidates);
   }
 
   if (event.head_commit) {
@@ -10551,7 +10233,7 @@ function collectChangedManifestsFromEvent(event = {}) {
     if (Array.isArray(event.head_commit.added)) combined.push(...event.head_commit.added);
     if (Array.isArray(event.head_commit.removed)) combined.push(...event.head_commit.removed);
     if (Array.isArray(event.head_commit.modified)) combined.push(...event.head_commit.modified);
-    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .deduplicateList */ .lP)(combined.filter((file) => typeof file === "string" && file.endsWith(".notion.txt")));
+    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .deduplicateList */ .lP)(combined.filter((file) => typeof file === "string" && file.endsWith(".notion.txt")));
   }
 
   return [];
@@ -10592,7 +10274,7 @@ function collectChangedManifestsFromGit(event = {}) {
   for (const [baseRef, headRef] of refs) {
     const changed = (0,_git_js__WEBPACK_IMPORTED_MODULE_7__/* .listFilesChangedBetween */ .KE)(baseRef, headRef).filter((file) => file.endsWith(".notion.txt"));
     if (changed.length > 0) {
-      return (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .deduplicateList */ .lP)(changed);
+      return (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .deduplicateList */ .lP)(changed);
     }
   }
 
@@ -10602,31 +10284,31 @@ function collectChangedManifestsFromGit(event = {}) {
 async function resolveManifests(inputs) {
   if (!process.env.GITHUB_EVENT_PATH) {
     return inputs.mode === "full"
-      ? (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .listNotionManifests */ .SZ)(process.cwd(), inputs.pathFilter)
+      ? (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .listNotionManifests */ .SZ)(process.cwd(), inputs.pathFilter)
       : [];
   }
 
   if (!process.env.GITHUB_EVENT_PATH || inputs.mode !== "changed") {
-    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .listNotionManifests */ .SZ)(process.cwd(), inputs.pathFilter);
+    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .listNotionManifests */ .SZ)(process.cwd(), inputs.pathFilter);
   }
 
   if (process.env.GITHUB_EVENT_NAME === "schedule") {
-    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .listNotionManifests */ .SZ)(process.cwd(), inputs.pathFilter);
+    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .listNotionManifests */ .SZ)(process.cwd(), inputs.pathFilter);
   }
 
-  const event = await (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .readEventFile */ .zh)();
+  const event = await (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .readEventFile */ .zh)();
   if (!event) {
     return [];
   }
 
   const changed = collectChangedManifestsFromEvent(event);
   if (changed.length > 0) {
-    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .deduplicateList */ .lP)(changed.map((file) => node_path__WEBPACK_IMPORTED_MODULE_1__.resolve(process.cwd(), file)));
+    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .deduplicateList */ .lP)(changed.map((file) => node_path__WEBPACK_IMPORTED_MODULE_1__.resolve(process.cwd(), file)));
   }
 
   const changedFromGit = collectChangedManifestsFromGit(event);
   if (changedFromGit.length > 0) {
-    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .deduplicateList */ .lP)(changedFromGit.map((file) => node_path__WEBPACK_IMPORTED_MODULE_1__.resolve(process.cwd(), file)));
+    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .deduplicateList */ .lP)(changedFromGit.map((file) => node_path__WEBPACK_IMPORTED_MODULE_1__.resolve(process.cwd(), file)));
   }
 
   return [];
@@ -10635,14 +10317,14 @@ async function resolveManifests(inputs) {
 async function readManifest(filePath) {
   try {
     const content = await node_fs_promises__WEBPACK_IMPORTED_MODULE_0__.readFile(filePath, "utf8");
-    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .parseManifestLines */ .mo)(content);
+    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .parseManifestLines */ .mo)(content);
   } catch {
     return [];
   }
 }
 
 function toMeta(page, sourceFile, sourceLine) {
-  const title = _notionClient_js__WEBPACK_IMPORTED_MODULE_5__/* .NotionSyncClient */ .o.extractPageTitle(page);
+  const title = _notionClient_js__WEBPACK_IMPORTED_MODULE_6__/* .NotionSyncClient */ .o.extractPageTitle(page);
   return {
     notion_id: page.id,
     notion_url: page.url || `https://www.notion.so/${page.id.replace(/-/g, "")}`,
@@ -10662,7 +10344,7 @@ async function getDirectoryState(directory, directoryState) {
   }
 
   await node_fs_promises__WEBPACK_IMPORTED_MODULE_0__.mkdir(directory, { recursive: true });
-  const existingById = await (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .listExistingNotionPagesInDir */ .NH)(directory);
+  const existingById = await (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .listExistingNotionPagesInDir */ .NH)(directory);
   const usedNames = new Set(
     Array.from(existingById.values()).map((item) => node_path__WEBPACK_IMPORTED_MODULE_1__.basename(item).replace(/\.md$/i, "")),
   );
@@ -10695,6 +10377,11 @@ function markdownFromBlocks(n2m, blocks) {
   return parent.trim() ? `${parent.trim()}\n` : "";
 }
 
+function frontmatterFromMeta(meta) {
+  const yamlBody = js_yaml__WEBPACK_IMPORTED_MODULE_2__/* ["default"].dump */ .Ay.dump(meta, { noRefs: true, lineWidth: 2000 });
+  return `---\n${yamlBody}---`;
+}
+
 async function writePageMarkdown({
   directory,
   page,
@@ -10704,8 +10391,8 @@ async function writePageMarkdown({
   usedNames,
 }) {
   await node_fs_promises__WEBPACK_IMPORTED_MODULE_0__.mkdir(directory, { recursive: true });
-  const desiredBase = (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .slugFromTitle */ .GU)(meta.title || "notion-page");
-  const targetBase = (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .uniqueSlug */ .nD)(desiredBase, usedNames);
+  const desiredBase = (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .slugFromTitle */ .GU)(meta.title || "notion-page");
+  const targetBase = (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .uniqueSlug */ .nD)(desiredBase, usedNames);
   const targetPath = node_path__WEBPACK_IMPORTED_MODULE_1__.join(directory, `${targetBase}.md`);
 
   const existingPath = existingById.get(page.id);
@@ -10718,7 +10405,7 @@ async function writePageMarkdown({
     existingById.set(page.id, targetPath);
   }
 
-  const payload = `${(0,_converter_js__WEBPACK_IMPORTED_MODULE_6__/* .frontmatterFromMeta */ .m_)(meta)}\n\n${markdown}`;
+  const payload = `${frontmatterFromMeta(meta)}\n\n${markdown}`;
   await node_fs_promises__WEBPACK_IMPORTED_MODULE_0__.writeFile(targetPath, payload, "utf8");
   return targetPath;
 }
@@ -10788,7 +10475,7 @@ async function syncPageTree({
 
 async function syncManifest(filePath, notionClient, inputs, stats) {
   const directory = node_path__WEBPACK_IMPORTED_MODULE_1__.dirname(filePath);
-  const n2m = new notion_to_md__WEBPACK_IMPORTED_MODULE_2__.NotionToMarkdown({
+  const n2m = new notion_to_md__WEBPACK_IMPORTED_MODULE_3__.NotionToMarkdown({
     notionClient: notionClient.client,
     config: {
       separateChildPage: true,
@@ -10801,7 +10488,7 @@ async function syncManifest(filePath, notionClient, inputs, stats) {
   const requested = [];
 
   for (const line of lines) {
-    const notionId = (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .extractNotionId */ .qj)(line.raw);
+    const notionId = (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .extractNotionId */ .qj)(line.raw);
     if (!notionId) {
       console.warn(`Skipping invalid line in ${filePath}:${line.line}: ${line.raw}`);
       continue;
@@ -10874,7 +10561,7 @@ async function syncManifest(filePath, notionClient, inputs, stats) {
 }
 
 function parseInputs() {
-  return (0,_inputs_js__WEBPACK_IMPORTED_MODULE_3__/* .getInputs */ .G)();
+  return (0,_inputs_js__WEBPACK_IMPORTED_MODULE_4__/* .getInputs */ .G)();
 }
 
 async function commitChanges(inputs, changedFiles) {
@@ -10912,13 +10599,13 @@ async function main() {
   const manifests = await resolveManifests({ ...inputs, mode: effectiveMode });
   if (!manifests.length) {
     console.log("No .notion.txt manifests found.");
-    await (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .writeOutput */ .SE)("synced_pages", 0);
-    await (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .writeOutput */ .SE)("synced_assets", 0);
-    await (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .writeOutput */ .SE)("changed_files", "");
+    await (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .writeOutput */ .SE)("synced_pages", 0);
+    await (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .writeOutput */ .SE)("synced_assets", 0);
+    await (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .writeOutput */ .SE)("changed_files", "");
     return;
   }
 
-  const notionClient = new _notionClient_js__WEBPACK_IMPORTED_MODULE_5__/* .NotionSyncClient */ .o(inputs.notionToken);
+  const notionClient = new _notionClient_js__WEBPACK_IMPORTED_MODULE_6__/* .NotionSyncClient */ .o(inputs.notionToken);
   const result = {
     pages: 0,
     assets: 0,
@@ -10931,7 +10618,7 @@ async function main() {
     result.filesWritten.push(...output.filesWritten);
   }
 
-  const changedFiles = (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .deduplicateList */ .lP)((0,_git_js__WEBPACK_IMPORTED_MODULE_7__/* .listChangedFiles */ .AC)());
+  const changedFiles = (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .deduplicateList */ .lP)((0,_git_js__WEBPACK_IMPORTED_MODULE_7__/* .listChangedFiles */ .AC)());
 
   if (inputs.dryRun) {
     console.log(`Dry run complete. Would write ${changedFiles.length} files.`);
@@ -10939,9 +10626,9 @@ async function main() {
     await commitChanges(inputs, changedFiles);
   }
 
-  await (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .writeOutput */ .SE)("synced_pages", result.pages);
-  await (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .writeOutput */ .SE)("synced_assets", result.assets);
-  await (0,_utils_js__WEBPACK_IMPORTED_MODULE_4__/* .writeOutput */ .SE)("changed_files", result.filesWritten.join(","));
+  await (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .writeOutput */ .SE)("synced_pages", result.pages);
+  await (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .writeOutput */ .SE)("synced_assets", result.assets);
+  await (0,_utils_js__WEBPACK_IMPORTED_MODULE_5__/* .writeOutput */ .SE)("changed_files", result.filesWritten.join(","));
 
   console.log(`Synced ${result.pages} page(s), downloaded ${result.assets} asset(s).`);
 }
@@ -11046,36 +10733,6 @@ class NotionSyncClient {
     return this.client.pages.retrieve({ page_id: pageId });
   }
 
-  async getBlocksRecursively(blockId) {
-    const fetchChildren = async (id) => {
-      const out = [];
-      let cursor;
-      while (true) {
-        const response = await this.client.blocks.children.list({
-          block_id: id,
-          page_size: 100,
-          start_cursor: cursor,
-        });
-
-        for (const block of response.results) {
-          const normalized = { ...block };
-          if (block.has_children) {
-            normalized.children = await fetchChildren(block.id);
-          }
-          out.push(normalized);
-        }
-
-        if (!response.has_more) {
-          break;
-        }
-        cursor = response.next_cursor;
-      }
-      return out;
-    };
-
-    return fetchChildren(blockId);
-  }
-
   static extractPageTitle(page) {
     if (!page || typeof page !== "object") {
       return "notion-page";
@@ -11095,18 +10752,6 @@ class NotionSyncClient {
     }
 
     return page.id || "notion-page";
-  }
-
-  getPublicUrl(page) {
-    if (!page) {
-      return "";
-    }
-
-    if (page.url) {
-      return page.url;
-    }
-
-    return `https://www.notion.so/${page.id.replace(/-/g, "")}`;
   }
 }
 

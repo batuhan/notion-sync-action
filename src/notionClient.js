@@ -48,36 +48,6 @@ class NotionSyncClient {
     return this.client.pages.retrieve({ page_id: pageId });
   }
 
-  async getBlocksRecursively(blockId) {
-    const fetchChildren = async (id) => {
-      const out = [];
-      let cursor;
-      while (true) {
-        const response = await this.client.blocks.children.list({
-          block_id: id,
-          page_size: 100,
-          start_cursor: cursor,
-        });
-
-        for (const block of response.results) {
-          const normalized = { ...block };
-          if (block.has_children) {
-            normalized.children = await fetchChildren(block.id);
-          }
-          out.push(normalized);
-        }
-
-        if (!response.has_more) {
-          break;
-        }
-        cursor = response.next_cursor;
-      }
-      return out;
-    };
-
-    return fetchChildren(blockId);
-  }
-
   static extractPageTitle(page) {
     if (!page || typeof page !== "object") {
       return "notion-page";
@@ -97,18 +67,6 @@ class NotionSyncClient {
     }
 
     return page.id || "notion-page";
-  }
-
-  getPublicUrl(page) {
-    if (!page) {
-      return "";
-    }
-
-    if (page.url) {
-      return page.url;
-    }
-
-    return `https://www.notion.so/${page.id.replace(/-/g, "")}`;
   }
 }
 
