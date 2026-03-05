@@ -1,32 +1,35 @@
-name: Notion Markdown Sync
-description: Fetch Notion pages and databases and sync them into markdown files.
-author: codex
+name: Sync Notion to Git
+description: Easily sync the Notion pages you need to Git.
+author: Batuhan Icoz
+branding:
+  icon: book-open
+  color: blue
 inputs:
   notion_token:
     description: Notion integration token with read permissions.
     required: true
   github_token:
-    description: Token used for committing back to the repository.
+    description: Token used for committing changes back to the repository.
     required: true
     default: ${{ github.token }}
   mode:
-    description: Sync mode. "changed" for .notion.txt changes, "full" for all manifests.
+    description: Sync mode. Use "changed" for changed manifests or "full" for all manifests.
     required: false
     default: changed
   path_filter:
-    description: Glob-style filter for manifest discovery.
+    description: Glob filter used to discover manifest files.
     required: false
     default: '**/.notion.txt'
   assets_dir:
-    description: Asset directory name created as a sibling of each manifest directory.
+    description: Reserved for future asset handling. Currently unused.
     required: false
     default: notion-assets
   commit:
-    description: Commit changes back to repository.
+    description: Commit generated changes back to the repository.
     required: false
     default: 'true'
   dry_run:
-    description: If true, do not write files and do not commit.
+    description: If true, do not write files or create commits.
     required: false
     default: 'false'
   commit_user_name:
@@ -39,11 +42,11 @@ inputs:
     default: 41898282+github-actions[bot]@users.noreply.github.com
 outputs:
   synced_pages:
-    description: Count of notion pages rendered to markdown.
+    description: Number of Notion pages written to Markdown.
   synced_assets:
-    description: Count of downloaded assets.
+    description: Number of assets downloaded. Currently always 0.
   changed_files:
-    description: Comma-separated list of changed .notion.txt files.
+    description: Comma-separated list of Markdown files written by the action.
 runs:
   using: node20
   main: dist/index.js
