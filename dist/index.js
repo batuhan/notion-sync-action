@@ -9455,6 +9455,7 @@ __nccwpck_require__.d(__webpack_exports__, {
   Tl: () => (/* binding */ configureIdentity),
   GR: () => (/* binding */ isRepoClean),
   AC: () => (/* binding */ listChangedFiles),
+  KE: () => (/* binding */ listFilesChangedBetween),
   VC: () => (/* binding */ push),
   op: () => (/* binding */ setAuthenticatedRemote),
   Iz: () => (/* binding */ stageFiles)
@@ -9523,6 +9524,26 @@ function listChangedFiles() {
       const arrow = entry.indexOf(" -> ");
       return arrow >= 0 ? entry.slice(arrow + 4) : entry;
     });
+}
+
+function listFilesChangedBetween(baseRef, headRef) {
+  if (!baseRef || !headRef) {
+    return [];
+  }
+
+  try {
+    const output = run(`git diff --name-only ${JSON.stringify(baseRef)} ${JSON.stringify(headRef)}`);
+    if (!output) {
+      return [];
+    }
+
+    return output
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 
@@ -9600,6 +9621,27 @@ function buildCandidates(entries) {
   return deduped;
 }
 
+function collectChangedManifestsFromGit(event = {}) {
+  const refs = [];
+
+  if (event.before && event.after) {
+    refs.push([event.before, event.after]);
+  }
+
+  if (event.pull_request?.base?.sha && event.pull_request?.head?.sha) {
+    refs.push([event.pull_request.base.sha, event.pull_request.head.sha]);
+  }
+
+  for (const [baseRef, headRef] of refs) {
+    const changed = (0,_git_js__WEBPACK_IMPORTED_MODULE_7__/* .listFilesChangedBetween */ .KE)(baseRef, headRef).filter((file) => file.endsWith(".notion.txt"));
+    if (changed.length > 0) {
+      return (0,_utils_js__WEBPACK_IMPORTED_MODULE_3__/* .deduplicateList */ .lP)(changed);
+    }
+  }
+
+  return [];
+}
+
 async function resolveManifests(inputs) {
   if (!process.env.GITHUB_EVENT_PATH) {
     return inputs.mode === "full"
@@ -9623,6 +9665,11 @@ async function resolveManifests(inputs) {
   const changed = collectChangedManifestsFromEvent(event);
   if (changed.length > 0) {
     return (0,_utils_js__WEBPACK_IMPORTED_MODULE_3__/* .deduplicateList */ .lP)(changed.map((file) => node_path__WEBPACK_IMPORTED_MODULE_1__.resolve(process.cwd(), file)));
+  }
+
+  const changedFromGit = collectChangedManifestsFromGit(event);
+  if (changedFromGit.length > 0) {
+    return (0,_utils_js__WEBPACK_IMPORTED_MODULE_3__/* .deduplicateList */ .lP)(changedFromGit.map((file) => node_path__WEBPACK_IMPORTED_MODULE_1__.resolve(process.cwd(), file)));
   }
 
   return [];

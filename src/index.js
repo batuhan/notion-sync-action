@@ -23,6 +23,7 @@ import {
   setAuthenticatedRemote,
   push,
   listChangedFiles,
+  listFilesChangedBetween,
 } from "./git.js";
 
 function collectChangedManifestsFromEvent(event = {}) {
@@ -74,6 +75,27 @@ function buildCandidates(entries) {
   return deduped;
 }
 
+function collectChangedManifestsFromGit(event = {}) {
+  const refs = [];
+
+  if (event.before && event.after) {
+    refs.push([event.before, event.after]);
+  }
+
+  if (event.pull_request?.base?.sha && event.pull_request?.head?.sha) {
+    refs.push([event.pull_request.base.sha, event.pull_request.head.sha]);
+  }
+
+  for (const [baseRef, headRef] of refs) {
+    const changed = listFilesChangedBetween(baseRef, headRef).filter((file) => file.endsWith(".notion.txt"));
+    if (changed.length > 0) {
+      return deduplicateList(changed);
+    }
+  }
+
+  return [];
+}
+
 async function resolveManifests(inputs) {
   if (!process.env.GITHUB_EVENT_PATH) {
     return inputs.mode === "full"
@@ -97,6 +119,11 @@ async function resolveManifests(inputs) {
   const changed = collectChangedManifestsFromEvent(event);
   if (changed.length > 0) {
     return deduplicateList(changed.map((file) => path.resolve(process.cwd(), file)));
+  }
+
+  const changedFromGit = collectChangedManifestsFromGit(event);
+  if (changedFromGit.length > 0) {
+    return deduplicateList(changedFromGit.map((file) => path.resolve(process.cwd(), file)));
   }
 
   return [];

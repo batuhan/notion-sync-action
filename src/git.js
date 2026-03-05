@@ -60,6 +60,26 @@ function listChangedFiles() {
     });
 }
 
+function listFilesChangedBetween(baseRef, headRef) {
+  if (!baseRef || !headRef) {
+    return [];
+  }
+
+  try {
+    const output = run(`git diff --name-only ${JSON.stringify(baseRef)} ${JSON.stringify(headRef)}`);
+    if (!output) {
+      return [];
+    }
+
+    return output
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 export {
   isRepoClean,
   configureIdentity,
@@ -68,4 +88,5 @@ export {
   setAuthenticatedRemote,
   push,
   listChangedFiles,
+  listFilesChangedBetween,
 };
