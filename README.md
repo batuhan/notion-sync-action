@@ -1,77 +1,37 @@
-# Notion Markdown Sync Action
+# Notion Markdown Sync
 
-Sync Notion pages and databases to Markdown using `.notion.txt` files in your repo.
+Sync Notion pages and databases into Markdown files in your repository.
 
-- One `.notion.txt` file per folder, e.g. `docs/.notion.txt`.
-- One line = one Notion page/database URL or ID.
-- Top-level pages are written as `Page-Title.md` in the same folder.
-- Child pages are written under a sibling directory named after the parent file stem.
-- Frontmatter is added so renames won’t lose history (`notion_id` is stable).
-- Markdown conversion is handled by `notion-to-md`.
+## What it does
 
-## Inputs
+- Reads `.notion.txt` manifest files in your repo
+- Fetches the referenced Notion pages or databases
+- Writes Markdown files next to each manifest
+- Preserves stable `notion_id` frontmatter so renames keep history
+- Can commit generated changes back to the repo
 
-- `notion_token` (required): Notion integration token.
-- `github_token` (required): usually `${{ github.token }}`.
-- `mode`: `changed` (default) or `full`.
-- `path_filter`: glob for manifests, default `**/.notion.txt`.
-- `assets_dir`: currently unused, reserved for future asset handling.
-- `commit`: `true`/`false` (default `true`).
-- `dry_run`: `true`/`false` (default `false`).
-- `commit_user_name`, `commit_user_email`: git identity.
+## Quick start
 
-## Outputs
-
-- `synced_pages`: number of pages written.
-- `synced_assets`: always `0` for now. Asset downloading is not implemented in the current `notion-to-md` path.
-- `changed_files`: comma-separated markdown paths.
-
-## Example `.notion.txt`
-
-```text
-# docs
-https://www.notion.so/your-page-id-or-url
-https://www.notion.so/your-database-id-or-url
-```
-
-You can place files anywhere:
+Create a `.notion.txt` file:
 
 ```text
 docs/.notion.txt
-docs/desktop-app/.notion.txt
-docs/desktop-app/backend/.notion.txt
 ```
-
-## Output shape
-
-For a manifest entry pointing at a page with child pages:
 
 ```text
-docs/.notion.txt
-docs/How-to-Monorepo.md
-docs/How-to-Monorepo/How-to-Monorepo-Desktop.md
-docs/How-to-Monorepo/How-to-Monorepo-Android.md
-docs/How-to-Monorepo/How-to-Monorepo-iOS.md
+https://www.notion.so/your-page-or-database-url
 ```
 
-## Workflow: run on branch pushes/PRs when `.notion.txt` changes
+Add the action to your workflow:
 
 ```yaml
 name: notion-sync
 
 on:
   push:
-    branches:
-      - main
-      - develop
-      - 'release/**'
     paths:
       - '**/.notion.txt'
   pull_request:
-    branches:
-      - main
-      - develop
-      - 'release/**'
     paths:
       - '**/.notion.txt'
   schedule:
@@ -81,27 +41,72 @@ permissions:
   contents: write
 
 jobs:
-  notion-sync:
+  sync:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Sync Notion markdown
-        uses: batuhan/notion-sync-action@main
+
+      - uses: batuhan/notion-sync-action@v1
         with:
           notion_token: ${{ secrets.NOTION_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          mode: changed
-          commit: true
 ```
+
+## Manifest format
+
+One `.notion.txt` file per directory. Each non-empty line is a Notion page or database URL/ID.
+
+```text
+# comments are ignored
+https://www.notion.so/page-1
+https://www.notion.so/database-1
+```
+
+Example:
+
+```text
+docs/.notion.txt
+docs/guides/.notion.txt
+docs/api/.notion.txt
+```
+
+## Output
+
+For `docs/.notion.txt`, the action writes Markdown into `docs/`.
+
+```text
+docs/.notion.txt
+docs/Getting-Started.md
+docs/Getting-Started/Installation.md
+docs/Getting-Started/Configuration.md
+```
+
+## Inputs
+
+| Input | Required | Default | Description |
+| --- | --- | --- | --- |
+| `notion_token` | Yes | - | Notion integration token with read access |
+| `github_token` | No | `${{ github.token }}` | Token used when committing changes |
+| `mode` | No | `changed` | `changed` to process changed manifests, `full` to process all manifests |
+| `path_filter` | No | `**/.notion.txt` | Manifest discovery glob |
+| `commit` | No | `true` | Commit generated changes back to the repo |
+| `dry_run` | No | `false` | Run without writing or committing |
+| `commit_user_name` | No | `github-actions[bot]` | Commit author name |
+| `commit_user_email` | No | `41898282+github-actions[bot]@users.noreply.github.com` | Commit author email |
+| `assets_dir` | No | `notion-assets` | Reserved for future asset handling (currently unused) |
+
+## Outputs
+
+| Output | Description |
+| --- | --- |
+| `synced_pages` | Number of pages written |
+| `synced_assets` | Number of assets downloaded (currently `0`) |
+| `changed_files` | Comma-separated list of Markdown files written |
 
 ## Notes
 
-- `mode: changed` only processes changed `.notion.txt` manifests.
-- `schedule` runs a full sync automatically.
-- `mode: full` can be forced when needed (e.g. one-off backfill).
-- GitHub Actions manual runs are typically a good place to use `mode: full`.
+- `mode: changed` is intended for push and pull request runs.
+- Scheduled runs effectively sync everything.
+- Set `commit: false` if you only want generated files during the workflow run.
