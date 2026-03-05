@@ -1,5 +1,5 @@
 {
-  "name": "notion-page-sync-action",
+  "name": "@bi/notion-sync-action",
   "version": "0.1.0",
   "private": true,
   "type": "module",
