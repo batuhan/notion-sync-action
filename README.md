@@ -1,14 +1,14 @@
 # Notion Markdown Sync
 
-Sync Notion pages and databases into Markdown files in your repository.
+Sync Notion pages and databases into Markdown files in your repository. Create a `.notion.txt` file with a list of Notion links in any directory to get a Markdown file in the same directory. Perfect for making it easy for agents to have relevant docs for any company that lives in Notion. No MCP setup, they just become files. 
 
 ## What it does
 
-- Reads `.notion.txt` manifest files in your repo
+- Scans for `.notion.txt` manifest files in your repo
 - Fetches the referenced Notion pages or databases
 - Writes Markdown files next to each manifest
 - Preserves stable `notion_id` frontmatter so renames keep history
-- Can commit generated changes back to the repo
+- Can commit/PR generated changes back to the repo
 
 ## Quick start
 
