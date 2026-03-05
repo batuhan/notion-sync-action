@@ -10,13 +10,13 @@ function boolFromInput(value, defaultValue = false) {
 
 function safeFileName(value) {
   return value
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^a-z0-9_\-]/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .replace(/_\-_|\-_|\-_/g, "_")
-    .slice(0, 120) || "notion_page";
+    .normalize("NFKD")
+    .replace(/[\/\\]/g, " ")
+    .replace(/[\s:]+/g, "-")
+    .replace(/[^A-Za-z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "")
+    .slice(0, 120) || "notion-page";
 }
 
 function encodeOutputValue(value) {

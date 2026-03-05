@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { NotionToMarkdown } from "notion-to-md";
 import { getInputs } from "./inputs.js";
 import {
   parseManifestLines,
@@ -13,8 +14,7 @@ import {
   writeOutput,
 } from "./utils.js";
 import { NotionSyncClient } from "./notionClient.js";
-import { AssetManager } from "./assetManager.js";
-import { convertToMarkdown, frontmatterFromMeta } from "./converter.js";
+import { frontmatterFromMeta } from "./converter.js";
 import {
   isRepoClean,
   configureIdentity,
@@ -152,6 +152,46 @@ function toMeta(page, sourceFile, sourceLine) {
   };
 }
 
+async function getDirectoryState(directory, directoryState) {
+  const cached = directoryState.get(directory);
+  if (cached) {
+    return cached;
+  }
+
+  await fs.mkdir(directory, { recursive: true });
+  const existingById = await listExistingNotionPagesInDir(directory);
+  const usedNames = new Set(
+    Array.from(existingById.values()).map((item) => path.basename(item).replace(/\.md$/i, "")),
+  );
+
+  const state = { existingById, usedNames };
+  directoryState.set(directory, state);
+  return state;
+}
+
+function collectChildPageBlocks(blocks = []) {
+  const childPages = [];
+
+  for (const block of blocks) {
+    if (block.type === "child_page") {
+      childPages.push(block);
+      continue;
+    }
+
+    if (Array.isArray(block.children) && block.children.length > 0) {
+      childPages.push(...collectChildPageBlocks(block.children));
+    }
+  }
+
+  return childPages;
+}
+
+function markdownFromBlocks(n2m, blocks) {
+  const markdownObject = n2m.toMarkdownString(blocks);
+  const parent = typeof markdownObject.parent === "string" ? markdownObject.parent : "";
+  return parent.trim() ? `${parent.trim()}\n` : "";
+}
+
 async function writePageMarkdown({
   directory,
   page,
@@ -160,6 +200,7 @@ async function writePageMarkdown({
   existingById,
   usedNames,
 }) {
+  await fs.mkdir(directory, { recursive: true });
   const desiredBase = slugFromTitle(meta.title || "notion-page");
   const targetBase = uniqueSlug(desiredBase, usedNames);
   const targetPath = path.join(directory, `${targetBase}.md`);
@@ -179,12 +220,79 @@ async function writePageMarkdown({
   return targetPath;
 }
 
+async function syncPageTree({
+  directory,
+  pageId,
+  blocks,
+  notionClient,
+  n2m,
+  directoryState,
+  stats,
+  sourceFile,
+  sourceLine,
+  sourceText,
+}) {
+  const page = await notionClient.getPageById(pageId);
+  const markdown = markdownFromBlocks(n2m, blocks);
+  const meta = toMeta(page, sourceFile, sourceLine);
+  meta.source_ref = sourceText;
+
+  const { existingById, usedNames } = await getDirectoryState(directory, directoryState);
+  const writtenPath = await writePageMarkdown({
+    directory,
+    page,
+    markdown,
+    meta,
+    existingById,
+    usedNames,
+  });
+
+  existingById.set(page.id, writtenPath);
+  usedNames.add(path.basename(writtenPath).replace(/\.md$/i, ""));
+  stats.pages += 1;
+  console.log(`Synced ${meta.title} -> ${writtenPath}`);
+
+  const childPageBlocks = collectChildPageBlocks(blocks);
+  if (childPageBlocks.length === 0) {
+    return [writtenPath];
+  }
+
+  const childDirectory = path.join(directory, path.basename(writtenPath, ".md"));
+  const filesWritten = [writtenPath];
+
+  for (const childPageBlock of childPageBlocks) {
+    if (!childPageBlock.blockId || !Array.isArray(childPageBlock.children)) {
+      continue;
+    }
+
+    const childFiles = await syncPageTree({
+      directory: childDirectory,
+      pageId: childPageBlock.blockId,
+      blocks: childPageBlock.children,
+      notionClient,
+      n2m,
+      directoryState,
+      stats,
+      sourceFile,
+      sourceLine,
+      sourceText,
+    });
+    filesWritten.push(...childFiles);
+  }
+
+  return filesWritten;
+}
+
 async function syncManifest(filePath, notionClient, inputs, stats) {
   const directory = path.dirname(filePath);
-  const assetManager = new AssetManager(directory, inputs.assetsDir);
-
-  const existingById = await listExistingNotionPagesInDir(directory);
-  const usedNames = new Set(Array.from(existingById.values()).map((item) => path.basename(item).replace(/\.md$/i, "")));
+  const n2m = new NotionToMarkdown({
+    notionClient: notionClient.client,
+    config: {
+      separateChildPage: true,
+      parseChildPages: true,
+    },
+  });
+  const directoryState = new Map();
 
   const lines = await readManifest(filePath);
   const requested = [];
@@ -240,34 +348,25 @@ async function syncManifest(filePath, notionClient, inputs, stats) {
   const filesWritten = [];
 
   for (const target of targets) {
-    const page = await notionClient.getPageById(target.pageId);
-    const pageBlocks = await notionClient.getBlocksRecursively(target.pageId);
-    const markdown = await convertToMarkdown(pageBlocks, {
-      assetManager,
-    });
-
-    const meta = toMeta(page, target.sourceFile, target.sourceLine);
-    meta.source_ref = target.sourceText;
-
-    const writtenPath = await writePageMarkdown({
+    const pageBlocks = await n2m.pageToMarkdown(target.pageId);
+    const written = await syncPageTree({
       directory,
-      page,
-      markdown,
-      meta,
-      existingById,
-      usedNames,
+      pageId: target.pageId,
+      blocks: pageBlocks,
+      notionClient,
+      n2m,
+      directoryState,
+      stats,
+      sourceFile: target.sourceFile,
+      sourceLine: target.sourceLine,
+      sourceText: target.sourceText,
     });
-
-    existingById.set(page.id, writtenPath);
-    usedNames.add(path.basename(writtenPath).replace(/\.md$/i, ""));
-    filesWritten.push(writtenPath);
-    stats.pages += 1;
-    console.log(`Synced ${meta.title} -> ${writtenPath}`);
+    filesWritten.push(...written);
   }
 
   return {
     filesWritten,
-    assetsDownloaded: assetManager.downloadedCount,
+    assetsDownloaded: 0,
   };
 }
 
