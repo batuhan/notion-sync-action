@@ -1,50 +1,39 @@
 # Notion Markdown Sync Action
 
-This action syncs `.notion.txt` manifests to markdown files in the same directory.
+Sync Notion pages and databases to Markdown using `.notion.txt` files in your repo.
 
-- every `.notion.txt` line is interpreted as a Notion page or database reference
-- database references expand to their pages
-- markdown output is written as `Page_Name.md` in the manifest directory
-- downloaded files/images are written to a sibling `notion-assets` directory (configurable)
-- title changes are handled by using frontmatter `notion_id` for stable identity
-- normal pushes only process changed `.notion.txt` files
-- scheduled runs process all manifests
+- One `.notion.txt` file per folder, e.g. `docs/.notion.txt`.
+- One line = one Notion page/database URL or ID.
+- Each page is written as `Page_Name.md` in the same folder.
+- Downloaded images/files are placed in sibling `notion-assets/` by default.
+- Frontmatter is added so renames won’t lose history (`notion_id` is stable).
 
 ## Inputs
 
 - `notion_token` (required): Notion integration token.
 - `github_token` (required): usually `${{ github.token }}`.
-- `mode` (`changed` | `full`, default `changed`):
-  - `changed`: discover changed `.notion.txt` files from event payload.
-  - `full`: discover all `.notion.txt` files.
-- `path_filter` (default `**/.notion.txt`): manifest glob.
-- `assets_dir` (default `notion-assets`): sibling asset directory name.
-- `commit` (default `true`): push results.
-- `dry_run` (default `false`): parse & render without writing.
-- `commit_user_name` / `commit_user_email`: git identity.
+- `mode`: `changed` (default) or `full`.
+- `path_filter`: glob for manifests, default `**/.notion.txt`.
+- `assets_dir`: default `notion-assets`.
+- `commit`: `true`/`false` (default `true`).
+- `dry_run`: `true`/`false` (default `false`).
+- `commit_user_name`, `commit_user_email`: git identity.
 
 ## Outputs
 
-- `synced_pages`: number of pages converted.
+- `synced_pages`: number of pages written.
 - `synced_assets`: number of downloaded assets.
-- `changed_files`: comma separated markdown files written.
+- `changed_files`: comma-separated markdown paths.
 
-## Frontmatter
+## Example `.notion.txt`
 
-Every generated markdown file contains at least:
+```text
+# docs
+https://www.notion.so/your-page-id-or-url
+https://www.notion.so/your-database-id-or-url
+```
 
-- `notion_id`
-- `notion_url`
-- `title`
-- `source_file`
-- `source_line`
-- `last_edited_time`
-- `notion_parent`
-- `fetched_at`
-
-## Example usage
-
-Create `.notion.txt` files in folders you want exported:
+You can place files anywhere:
 
 ```text
 docs/.notion.txt
@@ -52,16 +41,28 @@ docs/desktop-app/.notion.txt
 docs/desktop-app/backend/.notion.txt
 ```
 
-### Add this workflow to consumer repositories
+## Workflow: run on branch pushes/PRs when `.notion.txt` changes
 
 ```yaml
 name: notion-sync
+
 on:
   push:
+    branches:
+      - main
+      - develop
+      - 'release/**'
     paths:
-      - "**/.notion.txt"
+      - '**/.notion.txt'
+  pull_request:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+    paths:
+      - '**/.notion.txt'
   schedule:
-    - cron: "0 */6 * * *"
+    - cron: '0 */6 * * *'
 
 permissions:
   contents: write
@@ -76,21 +77,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Sync Notion content to markdown
-        uses: your-org/notion-sync-action@main
+      - name: Sync Notion markdown
+        uses: batuhan/notion-sync-action@main
         with:
           notion_token: ${{ secrets.NOTION_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          path_filter: "**/.notion.txt"
           mode: changed
           commit: true
 ```
 
-Notes:
-- On `schedule`, the action runs a full sync automatically.
-- On push/pull request, only changed `.notion.txt` files are processed.
-
 ## Notes
 
-- This action is designed to be lightweight and avoids deleting existing files automatically when references disappear.
-- If a line cannot be parsed as a Notion ID/URL, it is skipped with a warning.
+- `mode: changed` only processes changed `.notion.txt` manifests.
+- `schedule` runs a full sync automatically.
+- `mode: full` can be forced when needed (e.g. one-off backfill).
