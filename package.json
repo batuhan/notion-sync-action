@@ -4,12 +4,16 @@
   "private": true,
   "type": "module",
   "description": "GitHub Action to sync Notion pages/databases into markdown files using .notion.txt manifests.",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
+    "build": "ncc build src/index.js -o dist",
     "start": "node src/index.js"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15",
     "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@vercel/ncc": "^0.38.3"
   }
 }
